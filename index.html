@@ -5,53 +5,6 @@
   <title>Trò chơi Mạo Hiểm: Nhảy Vượt Chướng Ngại Vật - Hai Webcam</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      background: #eee;
-      margin: 0;
-      padding: 20px;
-    }
-    h1 {
-      margin-bottom: 10px;
-    }
-    #score {
-      font-size: 24px;
-      margin-bottom: 20px;
-    }
-    #gameContainer {
-      position: relative;
-      margin: auto;
-    }
-    canvas {
-      border: 1px solid black;
-      display: block;
-      margin: 0 auto 20px auto;
-    }
-    #webcamContainer {
-      display: flex;
-      justify-content: center;
-      gap: 20px;
-      margin: 20px auto;
-    }
-    .webcamWrapper {
-      position: relative;
-    }
-    .webcamWrapper video {
-      border: 1px solid black;
-    }
-    .webcamWrapper canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-      pointer-events: none;
-    }
-    #startButton {
-      font-size: 24px;
-      padding: 10px 20px;
-      cursor: pointer;
-      margin-top: 20px;
-    }
-    body {
       margin: 0;
       padding: 0;
       font-family: 'Roboto', sans-serif;
@@ -78,16 +31,21 @@
       margin-bottom: 20px;
       text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
     }
+    #rank {
+      font-size: 24px;
+      margin-top: 20px;
+      color: gold;
+    }
     #gameContainer {
       margin: 20px auto;
       position: relative;
     }
     #gameCanvas {
-      background: rgba(255, 255, 255, 0.8);
+      background: linear-gradient(to bottom, #87CEEB, #FFF);
       border: 2px solid #fff;
       border-radius: 10px;
     }
-    #startButton {
+    #startButton, #retryButton {
       padding: 12px 30px;
       font-size: 1.2em;
       background: #ff5722;
@@ -99,7 +57,8 @@
       box-shadow: 2px 2px 4px rgba(0,0,0,0.5);
       transition: background 0.3s;
     }
-    #startButton:hover { background: #e64a19; }
+    #startButton:hover, #retryButton:hover { background: #e64a19; }
+    #retryButton { display: none; }
     #instructions {
       font-size: 1.2em;
       margin-bottom: 20px;
@@ -126,7 +85,13 @@
       height: 100%;
       border-radius: 10px;
     }
-    #leaderboard {
+    .webcamWrapper canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+    }
+    #leaderboard, #disciplineBoard {
       margin-top: 20px;
       font-size: 20px;
       background: rgba(255, 255, 255, 0.8);
@@ -134,19 +99,48 @@
       border-radius: 10px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.5);
     }
-    #leaderboard h2 {
+    #leaderboard h2, #disciplineBoard h2 {
       margin-bottom: 10px;
       color: #ff5722;
       text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
     }
-    #leaderboard ol {
+    #leaderboard ol, #disciplineBoard ol {
       list-style: none;
       padding: 0;
     }
-    #leaderboard li {
+    #leaderboard li, #disciplineBoard li {
       margin: 8px 0;
       font-size: 18px;
       color: #333;
+    }
+    #disciplineBoard input[type="text"] {
+      padding: 5px;
+      font-size: 16px;
+      margin: 5px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    #disciplineBoard button {
+      padding: 5px 15px;
+      font-size: 16px;
+      background: #ff5722;
+      border: none;
+      border-radius: 5px;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    #disciplineBoard button:hover {
+      background: #e64a19;
+    }
+    #gameOverMessage {
+      font-size: 24px;
+      color: red;
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
     }
   </style>
 </head>
@@ -154,18 +148,22 @@
   <div class="container">
     <h1>Trò chơi Mạo Hiểm: Nhảy Vượt Chướng Ngại Vật</h1>
     <div id="score">Điểm: 0</div>
+    <div id="rank"></div>
     <div id="gameContainer">
       <canvas id="gameCanvas" width="800" height="400"></canvas>
     </div>
     <button id="startButton">Bắt đầu chơi</button>
+    <button id="retryButton">Chơi lại từ đầu</button>
     <p id="instructions">Hãy nhảy thật cao trước webcam để giúp người mạo hiểm nhảy qua chướng ngại vật!</p>
     <div id="webcamContainer">
       <div class="webcamWrapper">
         <video id="webcam1" width="320" height="240" autoplay playsinline></video>
+        <!-- Sử dụng canvas overlay của webcam 1 cho nhận diện -->
         <canvas id="overlay1" width="320" height="240"></canvas>
       </div>
       <div class="webcamWrapper">
         <video id="webcam2" width="320" height="240" autoplay playsinline></video>
+        <!-- Canvas của webcam 2 chỉ để hiển thị video -->
         <canvas id="overlay2" width="320" height="240"></canvas>
       </div>
     </div>
@@ -173,6 +171,16 @@
       <h2>Bảng Xếp Hạng</h2>
       <ol id="leaderboardList"></ol>
     </div>
+    <div id="disciplineBoard">
+      <h2>Bảng Kỷ Luật</h2>
+      <form id="disciplineForm">
+        <input type="text" id="disciplineName" placeholder="Nhập tên" required>
+        <input type="text" id="disciplineReason" placeholder="Nhập lý do" required>
+        <button type="submit">Thêm</button>
+      </form>
+      <ol id="disciplineList"></ol>
+    </div>
+    <div id="gameOverMessage"></div>
   </div>
 
   <!-- Tải TensorFlow.js và PoseNet -->
@@ -185,16 +193,16 @@
     const video1 = document.getElementById('webcam1');
     const overlay1 = document.getElementById('overlay1');
     const poseCtx1 = overlay1.getContext('2d');
+    const video2 = document.getElementById('webcam2');
     let posenetModel;
-    let baselineFaceY = null;  // Giá trị cơ sở của vị trí top của face box
-    const thresholdFace = 15;    // Ngưỡng so sánh (pixel) cho khuôn mặt
-    let isJumpingDetection = false;  // flag để tránh kích hoạt nhiều lần
-    let jumpSignal = false; // Tín hiệu nhảy được set thành true khi phát hiện nhảy
+    let baselineFaceY = null;
+    const thresholdFace = 15;
+    let isJumpingDetection = false;
+    let jumpSignal = false;
 
     async function setupWebcams() {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       video1.srcObject = stream;
-      const video2 = document.getElementById('webcam2');
       video2.srcObject = stream.clone();
       return new Promise(resolve => {
         video1.onloadedmetadata = () => {
@@ -211,8 +219,10 @@
 
     async function detectPose() {
       const pose = await posenetModel.estimateSinglePose(video1, { flipHorizontal: false });
+      // Xóa canvas overlay của webcam 1
       poseCtx1.clearRect(0, 0, overlay1.width, overlay1.height);
-      
+
+      // Vẽ khung xanh bao quanh toàn bộ cơ thể (với keypoint có score > 0.5)
       const keypoints = pose.keypoints.filter(k => k.score > 0.5);
       if (keypoints.length > 0) {
         const xs = keypoints.map(k => k.position.x);
@@ -224,12 +234,15 @@
         poseCtx1.strokeStyle = "green";
         poseCtx1.lineWidth = 2;
         poseCtx1.strokeRect(minX, minY, maxX - minX, maxY - minY);
+
+        // Vẽ các chấm đỏ cho từng keypoint
         keypoints.forEach(k => {
           poseCtx1.fillStyle = "red";
           poseCtx1.fillRect(k.position.x - 3, k.position.y - 3, 6, 6);
         });
       }
-      
+
+      // Nhận diện khuôn mặt dựa trên các keypoint: nose, leftEye, rightEye, leftEar, rightEar
       const faceParts = ['nose', 'leftEye', 'rightEye', 'leftEar', 'rightEar'];
       const faceKeypoints = pose.keypoints.filter(k => faceParts.includes(k.part) && k.score > 0.5);
       if (faceKeypoints.length > 0) {
@@ -241,10 +254,11 @@
         const faceMaxY = Math.max(...faceYs);
         const faceWidth = faceMaxX - faceMinX;
         const faceHeight = faceMaxY - faceMinY;
+        // Vẽ khung đỏ bao quanh khuôn mặt
         poseCtx1.strokeStyle = "red";
         poseCtx1.lineWidth = 3;
         poseCtx1.strokeRect(faceMinX, faceMinY, faceWidth, faceHeight);
-        
+
         if (baselineFaceY === null) {
           baselineFaceY = faceMinY;
         } else if (!isJumpingDetection) {
@@ -271,31 +285,39 @@
      * Phần trò chơi game *
      ***********************/
     const robotImg = new Image();
-    robotImg.src = "https://em-content.zobj.net/thumbs/120/apple/325/robot_1f916.png"; // Hình ảnh robot
+    robotImg.src = "https://em-content.zobj.net/thumbs/120/apple/325/robot_1f916.png";
     const treeImg = new Image();
-    treeImg.src = "https://em-content.zobj.net/thumbs/120/apple/325/rocket_1f680.png"; // Hình ảnh cây thông
+    treeImg.src = "https://em-content.zobj.net/thumbs/120/apple/325/rocket_1f680.png";
 
     const gameCanvas = document.getElementById('gameCanvas');
     const gameCtx = gameCanvas.getContext('2d');
-    const groundY = 350; // Mức đất
+    const groundY = 350;
     let gameScore = 0;
     let gameOver = false;
-    let jumpTextVisible = false; // Hiển thị chữ "NHAY" khi nhảy
-    let lastJumpTime = 0; // Thời gian nhảy cuối cùng
-    let jumpEffect = false; // Hiệu ứng nhảy
+    let jumpTextVisible = false;
+    let lastJumpTime = 0;
+    let jumpEffect = false;
+    let obstacleSpeed = 3;
+    let lastObstacleTime = Date.now();
 
+    // Robot chỉ được phép nhảy 1 lần (không nhảy kép)
     const hero = {
       x: 100,
       y: groundY,
       width: 50,
       height: 50,
-      jumpForce: -10,  // Lực nhảy cơ bản
-      vy: 0
+      jumpForce: -10,
+      vy: 0,
+      jumpCount: 0
     };
 
     let obstacles = [];
 
+    // Biến toàn cục lưu ID của game loop
+    let gameLoopId;
+
     function updateGame() {
+      // Cập nhật vị trí hero
       if (hero.y < groundY || hero.vy < 0) {
         hero.vy += 0.3;
         hero.y += hero.vy;
@@ -303,34 +325,53 @@
           hero.y = groundY;
           hero.vy = 0;
           jumpEffect = false;
+          // Khi hero chạm đất, reset jumpCount (chỉ cho nhảy 1 lần)
+          hero.jumpCount = 0;
         }
       }
+      // Cho phép nhảy nếu nhân vật đang ở mặt đất (không cho nhảy trong không trung)
       if (jumpSignal && hero.y === groundY) {
-        const currentTime = Date.now();
-        const timeSinceLastJump = currentTime - lastJumpTime;
-        let jumpForce = hero.jumpForce;
-        if (timeSinceLastJump < 500) { // Nếu nhảy trong vòng 500ms sau lần nhảy trước
-          jumpForce *= 1.5; // Tăng lực nhảy lên 1.5 lần
-        }
-        hero.vy = jumpForce;
+        hero.jumpCount = 1;
+        hero.vy = hero.jumpForce;
         hero.y += hero.vy;
         jumpSignal = false;
-        lastJumpTime = currentTime;
+        lastJumpTime = Date.now();
         jumpTextVisible = true;
         jumpEffect = true;
         setTimeout(() => { jumpTextVisible = false; }, 800);
       }
+
+      // Điều chỉnh độ khó: tốc độ chướng ngại vật tăng chậm hơn và khoảng spawn dài hơn
+      obstacleSpeed = 3 + Math.floor(gameScore / 300);
+      // Mỗi 200 điểm giảm spawnInterval (tối thiểu 1500ms)
+      let spawnInterval = Math.max(1500, 3000 - Math.floor(gameScore / 200) * 150);
+      let currentTime = Date.now();
+      if (currentTime - lastObstacleTime > spawnInterval) {
+        const obstacle = {
+          x: gameCanvas.width,
+          y: groundY,
+          width: 50,
+          height: Math.random() * 50 + 30
+        };
+        obstacles.push(obstacle);
+        lastObstacleTime = currentTime;
+      }
+
       obstacles.forEach(obstacle => {
-        obstacle.x -= 3;
+        obstacle.x -= obstacleSpeed;
       });
       obstacles = obstacles.filter(ob => ob.x + ob.width > 0);
       gameScore += 1;
+      document.getElementById('score').innerHTML = "Điểm: " + gameScore;
+      updateRank();
     }
 
     function drawGame() {
       gameCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+      gameCtx.fillStyle = "#87CEEB";
+      gameCtx.fillRect(0, 0, gameCanvas.width, groundY);
       gameCtx.fillStyle = "#654321";
-      gameCtx.fillRect(0, groundY + 50, gameCanvas.width, gameCanvas.height - groundY - 50);
+      gameCtx.fillRect(0, groundY, gameCanvas.width, gameCanvas.height - groundY);
       if (robotImg.complete) {
         gameCtx.drawImage(robotImg, hero.x, hero.y - hero.height, hero.width, hero.height);
       } else {
@@ -339,12 +380,12 @@
       }
       if (jumpEffect) {
         gameCtx.fillStyle = "yellow";
-        gameCtx.fillRect(hero.x, hero.y, hero.width, 10); // Hiệu ứng vệt sáng dưới chân
+        gameCtx.fillRect(hero.x, hero.y, hero.width, 10);
       }
       if (jumpTextVisible) {
         gameCtx.fillStyle = "purple";
         gameCtx.font = "30px Arial";
-        gameCtx.fillText("NHAY", hero.x + hero.width/2 - 20, hero.y - hero.height - 10);
+        gameCtx.fillText("Nhảy nhé cưng a hii", hero.x + hero.width/2 - 20, hero.y - hero.height - 10);
       }
       obstacles.forEach(obstacle => {
         if (treeImg.complete) {
@@ -356,7 +397,21 @@
       });
       gameCtx.fillStyle = "black";
       gameCtx.font = "20px Arial";
+      // Hiển thị Level: bắt đầu từ 3, tăng 1 level mỗi 500 điểm (độ tăng vừa phải)
+      gameCtx.fillText("Level: " + (3 + Math.floor(gameScore / 500)), 10, 60);
       gameCtx.fillText("Điểm: " + gameScore, 10, 30);
+      if (gameOver) {
+        gameCtx.fillStyle = "rgba(0,0,0,0.6)";
+        gameCtx.fillRect(0, 0, gameCanvas.width, gameCanvas.height);
+        gameCtx.fillStyle = "white";
+        gameCtx.textAlign = "center";
+        gameCtx.font = "50px Arial";
+        gameCtx.fillText("GAME OVER", gameCanvas.width / 2, gameCanvas.height / 2 - 20);
+        gameCtx.font = "30px Arial";
+        gameCtx.fillText("Điểm: " + gameScore, gameCanvas.width / 2, gameCanvas.height / 2 + 20);
+        gameCtx.font = "20px Arial";
+        gameCtx.fillText("Chọn nút 'Chơi lại từ đầu' để bắt đầu lại", gameCanvas.width / 2, gameCanvas.height / 2 + 60);
+      }
     }
 
     function checkCollision() {
@@ -376,34 +431,42 @@
     function gameLoop() {
       if (!gameOver) {
         updateGame();
-        drawGame();
         checkCollision();
-        requestAnimationFrame(gameLoop);
       }
+      drawGame();
+      gameLoopId = requestAnimationFrame(gameLoop);
     }
 
-    setInterval(() => {
-      const obstacle = {
-        x: gameCanvas.width,
-        y: groundY + 50,
-        width: 50,
-        height: Math.random() * 50 + 30
-      };
-      obstacles.push(obstacle);
-    }, 3000);
-
     const startButton = document.getElementById('startButton');
-    startButton.addEventListener('click', () => {
-      startButton.style.display = "none";
-      gameLoop();
-    });
+    const retryButton = document.getElementById('retryButton');
+    startButton.addEventListener('click', startGame);
+    retryButton.addEventListener('click', startGame);
 
-    // Phần bảng xếp hạng
+    function startGame() {
+      // Hủy game loop cũ nếu có
+      if (gameLoopId) {
+        cancelAnimationFrame(gameLoopId);
+      }
+      startButton.style.display = "none";
+      retryButton.style.display = "none";
+      document.getElementById('gameOverMessage').innerHTML = "";
+      gameScore = 0;
+      gameOver = false;
+      obstacles = [];
+      hero.y = groundY;
+      hero.vy = 0;
+      hero.jumpCount = 0;
+      document.getElementById('score').innerHTML = "Điểm: 0";
+      document.getElementById('rank').innerHTML = "";
+      lastObstacleTime = Date.now();
+      gameLoop();
+    }
+
     function saveScore(score, name) {
       let scores = JSON.parse(localStorage.getItem('scores')) || [];
       scores.push({ name, score });
       scores.sort((a, b) => b.score - a.score);
-      scores = scores.slice(0, 5); // Giữ top 5
+      scores = scores.slice(0, 5);
       localStorage.setItem('scores', JSON.stringify(scores));
     }
 
@@ -423,20 +486,66 @@
       const highestScore = scores.length > 0 ? scores[0].score : 0;
       if (score > highestScore) {
         const name = prompt("Chúc mừng! Bạn đã phá vỡ kỷ lục. Nhập tên của bạn:");
-        if (name) {
-          saveScore(score, name);
-        } else {
-          saveScore(score, "Người chơi");
-        }
+        saveScore(score, name || "Người chơi");
       } else {
         saveScore(score, "Người chơi");
       }
       displayLeaderboard();
-      alert("Game Over! Điểm: " + score);
-      document.location.reload();
+      document.getElementById('gameOverMessage').innerHTML = "Bạn thật gà, thử lại đi!";
+      retryButton.style.display = "block";
+    }
+
+    function updateRank() {
+      const rankElement = document.getElementById('rank');
+      if (gameScore > 5000) {
+        rankElement.innerHTML = "Rank: Cao Thủ";
+      } else if (gameScore > 4000) {
+        rankElement.innerHTML = "Rank: Kim Cương";
+      } else if (gameScore > 3000) {
+        rankElement.innerHTML = "Rank: Đồng";
+      } else {
+        rankElement.innerHTML = "";
+      }
     }
 
     displayLeaderboard();
+
+    /***********************
+     * Phần Bảng Kỷ Luật *
+     ***********************/
+    const disciplineForm = document.getElementById("disciplineForm");
+    const disciplineList = document.getElementById("disciplineList");
+
+    disciplineForm.addEventListener("submit", function(e) {
+      e.preventDefault();
+      const name = document.getElementById("disciplineName").value.trim();
+      const reason = document.getElementById("disciplineReason").value.trim();
+      if (name && reason) {
+        saveDiscipline(name, reason);
+        document.getElementById("disciplineName").value = "";
+        document.getElementById("disciplineReason").value = "";
+        displayDisciplineBoard();
+      }
+    });
+
+    function saveDiscipline(name, reason) {
+      let disciplines = JSON.parse(localStorage.getItem("disciplines")) || [];
+      disciplines.push({ name, reason });
+      localStorage.setItem("disciplines", JSON.stringify(disciplines));
+    }
+
+    function displayDisciplineBoard() {
+      const disciplines = JSON.parse(localStorage.getItem("disciplines")) || [];
+      disciplineList.innerHTML = "";
+      disciplines.forEach((entry, index) => {
+        const li = document.createElement("li");
+        li.textContent = `${index + 1}. ${entry.name} - ${entry.reason}`;
+        disciplineList.appendChild(li);
+      });
+    }
+
+    displayDisciplineBoard();
   </script>
 </body>
 </html>
+
