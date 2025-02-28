@@ -51,8 +51,7 @@
       cursor: pointer;
       margin-top: 20px;
     }
-	
-body {
+    body {
       margin: 0;
       padding: 0;
       font-family: 'Roboto', sans-serif;
@@ -127,24 +126,52 @@ body {
       height: 100%;
       border-radius: 10px;
     }
+    #leaderboard {
+      margin-top: 20px;
+      font-size: 20px;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    }
+    #leaderboard h2 {
+      margin-bottom: 10px;
+      color: #ff5722;
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+    }
+    #leaderboard ol {
+      list-style: none;
+      padding: 0;
+    }
+    #leaderboard li {
+      margin: 8px 0;
+      font-size: 18px;
+      color: #333;
+    }
   </style>
 </head>
 <body>
-  <h1 style="color: white;">Trò chơi Mạo Hiểm: Nhảy Vượt Chướng Ngại Vật</h1>
-  <div id="score">Điểm: 0</div>
-  <div id="gameContainer">
-    <canvas id="gameCanvas" width="800" height="400"></canvas>
-  </div>
-  <button id="startButton">Bắt đầu chơi</button>
-  <p>Hãy nhảy thật cao trước webcam để giúp người mạo hiểm nhảy qua chướng ngại vật!</p>
-  <div id="webcamContainer">
-    <div class="webcamWrapper">
-      <video id="webcam1" width="320" height="240" autoplay playsinline></video>
-      <canvas id="overlay1" width="320" height="240"></canvas>
+  <div class="container">
+    <h1>Trò chơi Mạo Hiểm: Nhảy Vượt Chướng Ngại Vật</h1>
+    <div id="score">Điểm: 0</div>
+    <div id="gameContainer">
+      <canvas id="gameCanvas" width="800" height="400"></canvas>
     </div>
-    <div class="webcamWrapper">
-      <video id="webcam2" width="320" height="240" autoplay playsinline></video>
-      <canvas id="overlay2" width="320" height="240"></canvas>
+    <button id="startButton">Bắt đầu chơi</button>
+    <p id="instructions">Hãy nhảy thật cao trước webcam để giúp người mạo hiểm nhảy qua chướng ngại vật!</p>
+    <div id="webcamContainer">
+      <div class="webcamWrapper">
+        <video id="webcam1" width="320" height="240" autoplay playsinline></video>
+        <canvas id="overlay1" width="320" height="240"></canvas>
+      </div>
+      <div class="webcamWrapper">
+        <video id="webcam2" width="320" height="240" autoplay playsinline></video>
+        <canvas id="overlay2" width="320" height="240"></canvas>
+      </div>
+    </div>
+    <div id="leaderboard">
+      <h2>Bảng Xếp Hạng</h2>
+      <ol id="leaderboardList"></ol>
     </div>
   </div>
 
@@ -166,9 +193,7 @@ body {
 
     async function setupWebcams() {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      // Gán stream cho webcam1
       video1.srcObject = stream;
-      // Gán stream clone cho webcam2
       const video2 = document.getElementById('webcam2');
       video2.srcObject = stream.clone();
       return new Promise(resolve => {
@@ -186,10 +211,8 @@ body {
 
     async function detectPose() {
       const pose = await posenetModel.estimateSinglePose(video1, { flipHorizontal: false });
-      // Xóa canvas overlay của webcam1
       poseCtx1.clearRect(0, 0, overlay1.width, overlay1.height);
       
-      // Vẽ bounding box toàn cơ thể (ô xanh) và các điểm nhỏ (ô đỏ)
       const keypoints = pose.keypoints.filter(k => k.score > 0.5);
       if (keypoints.length > 0) {
         const xs = keypoints.map(k => k.position.x);
@@ -207,7 +230,6 @@ body {
         });
       }
       
-      // Tính và vẽ face box (dùng keypoints: nose, leftEye, rightEye, leftEar, rightEar)
       const faceParts = ['nose', 'leftEye', 'rightEye', 'leftEar', 'rightEar'];
       const faceKeypoints = pose.keypoints.filter(k => faceParts.includes(k.part) && k.score > 0.5);
       if (faceKeypoints.length > 0) {
@@ -219,21 +241,18 @@ body {
         const faceMaxY = Math.max(...faceYs);
         const faceWidth = faceMaxX - faceMinX;
         const faceHeight = faceMaxY - faceMinY;
-        // Vẽ face box với đường viền màu đỏ
         poseCtx1.strokeStyle = "red";
         poseCtx1.lineWidth = 3;
         poseCtx1.strokeRect(faceMinX, faceMinY, faceWidth, faceHeight);
         
-        // Cập nhật baseline theo dạng moving average khi không nhảy
         if (baselineFaceY === null) {
           baselineFaceY = faceMinY;
         } else if (!isJumpingDetection) {
           baselineFaceY = baselineFaceY * 0.9 + faceMinY * 0.1;
         }
-        // Nếu face box di chuyển lên vượt quá ngưỡng so với baseline, kích hoạt nhảy
         if (faceMinY < baselineFaceY - thresholdFace && !isJumpingDetection) {
           isJumpingDetection = true;
-          jumpSignal = true; // Kích hoạt tín hiệu nhảy cho game
+          jumpSignal = true;
           setTimeout(() => { isJumpingDetection = false; }, 1000);
         }
       }
@@ -246,17 +265,15 @@ body {
       detectPose();
     }
 
-    // Khởi chạy nhận diện nhảy khi vào web
     initPoseDetection();
 
     /***********************
      * Phần trò chơi game *
      ***********************/
-    // Tạo đối tượng Image cho robot và tên lửa
     const robotImg = new Image();
-    robotImg.src = "https://em-content.zobj.net/thumbs/120/apple/325/robot_1f916.png"; // hình ảnh robot
-    const missileImg = new Image();
-    missileImg.src = "https://em-content.zobj.net/thumbs/120/apple/325/rocket_1f680.png"; // hình ảnh tên lửa
+    robotImg.src = "https://em-content.zobj.net/thumbs/120/apple/325/robot_1f916.png"; // Hình ảnh robot
+    const treeImg = new Image();
+    treeImg.src = "https://em-content.zobj.net/thumbs/120/apple/325/rocket_1f680.png"; // Hình ảnh cây thông
 
     const gameCanvas = document.getElementById('gameCanvas');
     const gameCtx = gameCanvas.getContext('2d');
@@ -264,74 +281,79 @@ body {
     let gameScore = 0;
     let gameOver = false;
     let jumpTextVisible = false; // Hiển thị chữ "NHAY" khi nhảy
+    let lastJumpTime = 0; // Thời gian nhảy cuối cùng
+    let jumpEffect = false; // Hiệu ứng nhảy
 
-    // Đối tượng người mạo hiểm (hero) – sẽ hiển thị bằng hình robot
     const hero = {
       x: 100,
       y: groundY,
       width: 50,
       height: 50,
-      jumpForce: -10,  // Lực nhảy dễ hơn
+      jumpForce: -10,  // Lực nhảy cơ bản
       vy: 0
     };
 
     let obstacles = [];
 
     function updateGame() {
-      // Cập nhật vị trí hero với trọng lực nhẹ
       if (hero.y < groundY || hero.vy < 0) {
         hero.vy += 0.3;
         hero.y += hero.vy;
         if (hero.y > groundY) {
           hero.y = groundY;
           hero.vy = 0;
+          jumpEffect = false;
         }
       }
-      // Nếu nhận được tín hiệu nhảy và hero đang ở mặt đất, thực hiện nhảy
       if (jumpSignal && hero.y === groundY) {
-        hero.vy = hero.jumpForce;
+        const currentTime = Date.now();
+        const timeSinceLastJump = currentTime - lastJumpTime;
+        let jumpForce = hero.jumpForce;
+        if (timeSinceLastJump < 500) { // Nếu nhảy trong vòng 500ms sau lần nhảy trước
+          jumpForce *= 1.5; // Tăng lực nhảy lên 1.5 lần
+        }
+        hero.vy = jumpForce;
         hero.y += hero.vy;
         jumpSignal = false;
+        lastJumpTime = currentTime;
         jumpTextVisible = true;
+        jumpEffect = true;
         setTimeout(() => { jumpTextVisible = false; }, 800);
       }
-      // Cập nhật chướng ngại vật (di chuyển chậm hơn)
       obstacles.forEach(obstacle => {
         obstacle.x -= 3;
       });
       obstacles = obstacles.filter(ob => ob.x + ob.width > 0);
-      // Tăng điểm theo thời gian
       gameScore += 1;
     }
 
     function drawGame() {
       gameCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
-      // Vẽ nền đất
       gameCtx.fillStyle = "#654321";
       gameCtx.fillRect(0, groundY + 50, gameCanvas.width, gameCanvas.height - groundY - 50);
-      // Vẽ người mạo hiểm (hero) bằng hình robot
       if (robotImg.complete) {
         gameCtx.drawImage(robotImg, hero.x, hero.y - hero.height, hero.width, hero.height);
       } else {
         gameCtx.fillStyle = "blue";
         gameCtx.fillRect(hero.x, hero.y - hero.height, hero.width, hero.height);
       }
-      // Vẽ chữ "NHAY" khi nhảy
+      if (jumpEffect) {
+        gameCtx.fillStyle = "yellow";
+        gameCtx.fillRect(hero.x, hero.y, hero.width, 10); // Hiệu ứng vệt sáng dưới chân
+      }
       if (jumpTextVisible) {
         gameCtx.fillStyle = "purple";
         gameCtx.font = "30px Arial";
         gameCtx.fillText("NHAY", hero.x + hero.width/2 - 20, hero.y - hero.height - 10);
       }
-      // Vẽ các chướng ngại vật bằng hình tên lửa
       obstacles.forEach(obstacle => {
-        if (missileImg.complete) {
-          gameCtx.drawImage(missileImg, obstacle.x, obstacle.y - obstacle.height, obstacle.width, obstacle.height);
+        if (treeImg.complete) {
+          gameCtx.drawImage(treeImg, obstacle.x, obstacle.y - obstacle.height, obstacle.width, obstacle.height);
         } else {
           gameCtx.fillStyle = "red";
           gameCtx.fillRect(obstacle.x, obstacle.y - obstacle.height, obstacle.width, obstacle.height);
         }
       });
-      // Vẽ điểm
       gameCtx.fillStyle = "black";
       gameCtx.font = "20px Arial";
       gameCtx.fillText("Điểm: " + gameScore, 10, 30);
@@ -346,8 +368,7 @@ body {
           hero.y > obstacle.y - obstacle.height
         ) {
           gameOver = true;
-          alert("Game Over! Điểm: " + gameScore);
-          document.location.reload();
+          handleGameOver(gameScore);
         }
       }
     }
@@ -361,7 +382,6 @@ body {
       }
     }
 
-    // Tạo chướng ngại vật mỗi 3 giây để giảm độ khó
     setInterval(() => {
       const obstacle = {
         x: gameCanvas.width,
@@ -372,12 +392,51 @@ body {
       obstacles.push(obstacle);
     }, 3000);
 
-    // Nút bắt đầu – trò chơi chỉ chạy khi nhấn nút
     const startButton = document.getElementById('startButton');
     startButton.addEventListener('click', () => {
       startButton.style.display = "none";
       gameLoop();
     });
+
+    // Phần bảng xếp hạng
+    function saveScore(score, name) {
+      let scores = JSON.parse(localStorage.getItem('scores')) || [];
+      scores.push({ name, score });
+      scores.sort((a, b) => b.score - a.score);
+      scores = scores.slice(0, 5); // Giữ top 5
+      localStorage.setItem('scores', JSON.stringify(scores));
+    }
+
+    function displayLeaderboard() {
+      const scores = JSON.parse(localStorage.getItem('scores')) || [];
+      const leaderboardList = document.getElementById('leaderboardList');
+      leaderboardList.innerHTML = '';
+      scores.forEach((entry, index) => {
+        const li = document.createElement('li');
+        li.textContent = `${index + 1}. ${entry.name} - ${entry.score}`;
+        leaderboardList.appendChild(li);
+      });
+    }
+
+    function handleGameOver(score) {
+      const scores = JSON.parse(localStorage.getItem('scores')) || [];
+      const highestScore = scores.length > 0 ? scores[0].score : 0;
+      if (score > highestScore) {
+        const name = prompt("Chúc mừng! Bạn đã phá vỡ kỷ lục. Nhập tên của bạn:");
+        if (name) {
+          saveScore(score, name);
+        } else {
+          saveScore(score, "Người chơi");
+        }
+      } else {
+        saveScore(score, "Người chơi");
+      }
+      displayLeaderboard();
+      alert("Game Over! Điểm: " + score);
+      document.location.reload();
+    }
+
+    displayLeaderboard();
   </script>
 </body>
 </html>
